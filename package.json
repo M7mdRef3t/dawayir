@@ -1,6 +1,7 @@
 {
-  "name": "dawayir",
+  "name": "@alrehla/dawayir",
   "version": "0.1.0",
+  "main": "lib/index.ts",
   "private": true,
   "scripts": {
     "dev": "next dev",
