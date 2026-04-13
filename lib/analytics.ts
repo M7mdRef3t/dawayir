@@ -661,3 +661,51 @@ export function buildRelationalFieldSnapshot(input: BuildRelationalFieldInput): 
     twin
   };
 }
+
+export function interpretPainLevel(intensity: number): {
+  label: string;
+  color: string;
+  action: string;
+} {
+  if (intensity >= 80) {
+    return {
+      label: "حرج",
+      color: "var(--color-danger)",
+      action: "اتخاذ إجراء فوري مطلوب",
+    };
+  }
+  if (intensity >= 60) {
+    return {
+      label: "مرتفع",
+      color: "var(--color-warning)",
+      action: "مراجعة خطة التعافي",
+    };
+  }
+  if (intensity >= 40) {
+    return {
+      label: "متوسط",
+      color: "var(--color-caution)",
+      action: "المتابعة اليومية كافية",
+    };
+  }
+  return {
+    label: "منخفض",
+    color: "var(--color-success)",
+    action: "استمر في نهجك الحالي",
+  };
+}
+
+export function summarizeTwinRecommendation(snapshot: RelationalFieldSnapshot): string {
+  const { recommended } = snapshot.twin;
+  const painLabel = interpretPainLevel(snapshot.pain.painFieldIntensity).label;
+
+  const actionMap: Record<string, string> = {
+    no_action: "لا يوجد إجراء مطلوب حالياً",
+    micro_regulation: "جلسة تنظيم 90 ثانية موصى بها",
+    soft_boundary: "وضع حدود ناعمة مع أكثر الأشخاص استنزافاً",
+    targeted_reflection: "كتابة تأمل موجه الآن",
+    mission_focus: "ركز على خطوة واحدة من مهمتك",
+  };
+
+  return `[${painLabel}] ${actionMap[recommended.id] ?? recommended.label}`;
+}

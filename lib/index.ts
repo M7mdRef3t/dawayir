@@ -24,4 +24,14 @@ export type {
   GraphInsights,
   HiddenPattern,
   DawayirConfig,
+  NodeDataColor,
+  NodeDataSize,
+  NodeData,
+  EdgeData,
+  DawayirMapState,
+  MapSyncPayload,
+  MapSyncStatus,
+  DawayirDomainEvent,
 } from "./types";
+
+export * from "./analytics";

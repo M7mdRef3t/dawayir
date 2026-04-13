@@ -79,3 +79,50 @@ export interface DawayirConfig {
   enableAI?: boolean;
   locale?: "ar" | "en";
 }
+
+// ─── Cloud Map Sync Types ────────────────────────────────
+
+export type NodeDataColor = "core" | "danger" | "ignored" | "neutral";
+export type NodeDataSize = "small" | "medium" | "large";
+
+export type NodeData = {
+  id: string;
+  label: string;
+  size: NodeDataSize;
+  color: NodeDataColor;
+  mass: number;
+};
+
+export type EdgeData = {
+  source: string;
+  target: string;
+  type: string;
+  animated: boolean;
+};
+
+export interface DawayirMapState {
+  id?: string;
+  nodes: NodeData[];
+  edges: EdgeData[];
+  insight_message: string;
+  detected_symptoms?: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface MapSyncPayload<TNode = any> {
+  sessionId: string;
+  nodes: TNode[];
+  updatedAt: string;
+  needsSync: boolean;
+  lastError?: string | null;
+}
+
+export type MapSyncStatus = "idle" | "pending" | "syncing" | "synced" | "error" | "offline";
+
+export type DawayirDomainEvent =
+  | { type: "node_added"; nodeId: string; ring: string }
+  | { type: "node_archived"; nodeId: string }
+  | { type: "ring_changed"; nodeId: string; from: string; to: string }
+  | { type: "detachment_toggled"; nodeId: string; value: boolean }
+  | { type: "map_synced"; timestamp: string }
+  | { type: "relational_snapshot_ready"; painIntensity: number };
