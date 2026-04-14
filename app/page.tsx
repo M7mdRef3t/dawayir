@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import {
-  createNode, createEdge, createGraph, analyzeGraph,
-  getRingStats, toVisualizationData,
+  createNode, createEdge, createGraph
 } from "@/lib/engine";
-import type { DawayirNode, DawayirEdge, Ring, GraphInsights } from "@/lib/types";
+import type { DawayirNode, DawayirEdge, Ring } from "@/lib/types";
+import { AuthModal } from "@/components/AuthModal";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 /* ─── Sample Data ──────────────────────── */
 function buildDemoGraph() {
@@ -34,7 +36,7 @@ function buildDemoGraph() {
 
 /* ─── Ring positioning ─────────────────── */
 function positionNode(node: DawayirNode, index: number, total: number, canvasSize: number) {
-  const ringRadius: Record<Ring, number> = { red: 0.14, yellow: 0.28, green: 0.42 };
+  const ringRadius: Record<Ring, number> = { green: 0.14, yellow: 0.28, red: 0.42 };
   const r = ringRadius[node.ring] * canvasSize;
   const angle = (2 * Math.PI * index) / Math.max(total, 1) - Math.PI / 2;
   const cx = canvasSize / 2 + Math.cos(angle) * r;
@@ -44,13 +46,70 @@ function positionNode(node: DawayirNode, index: number, total: number, canvasSiz
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const [graph, setGraph] = useState(() => buildDemoGraph());
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [newRing, setNewRing] = useState<Ring>("yellow");
 
-  const stats = useMemo(() => getRingStats(graph.nodes), [graph.nodes]);
-  const insights = useMemo(() => analyzeGraph(graph), [graph]);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user);
+    });
+  }, []);
+
+  const handleCommandCenterClick = () => {
+    if (user) {
+      router.push("/dashboard");
+    } else {
+      setIsAuthOpen(true);
+    }
+  };
+
+  // State for legacy UI structure
+  const [sessionId, setSessionId] = useState<string>("");
+
+  // Load session & initial map
+  useEffect(() => {
+    let sid = localStorage.getItem("dw_session");
+    if (!sid) {
+      sid = "session-" + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem("dw_session", sid);
+    }
+    setSessionId(sid);
+
+    fetch(`/api/v1/sync?sessionId=${sid}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.map && data.map.nodes?.length > 0) {
+          setGraph(data.map);
+        }
+      })
+      .catch(console.error);
+  }, []);
+
+  // Sync back to DB on change (debounce)
+  useEffect(() => {
+    if (!sessionId || graph.nodes.length === 0) return;
+    const timeout = setTimeout(() => {
+      fetch("/api/v1/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, nodes: graph.nodes, edges: graph.edges })
+      }).catch(console.error);
+    }, 1500);
+    return () => clearTimeout(timeout);
+  }, [graph, sessionId]);
+
+  // Execute deep analysis when graph or user state changes
+  useEffect(() => {
+    if (!sessionId) return;
+    // Analysis is now moved to Command Center
+  }, [graph, sessionId]);
+
   const active = useMemo(() => graph.nodes.filter(n => !n.archived), [graph.nodes]);
   const canvasSize = 600;
 
@@ -91,13 +150,13 @@ export default function HomePage() {
         <div className="container nav__inner">
           <a href="/" className="nav__logo">
             <div className="nav__logo-rings"><span /><span /><span /></div>
-            <span>Dawayir</span>
+            <span>دواير</span>
           </a>
           <div className="nav__links">
-            <a href="#playground">Playground</a>
-            <a href="#features">Features</a>
-            <a href="#quickstart">Quick Start</a>
-            <a href="/docs">Docs</a>
+            <a href="#playground">ساحة التجربة</a>
+            <a href="#features">المميزات</a>
+            <a href="#quickstart">البداية السريعة</a>
+            <a href="/docs">التوثيق</a>
           </div>
         </div>
       </nav>
@@ -105,15 +164,15 @@ export default function HomePage() {
       {/* Hero */}
       <section className="hero">
         <div className="container hero__inner">
-          <div className="hero__badge animate-in">🔗 World&apos;s First — Relationship Intelligence Platform</div>
-          <h1 className="hero__title animate-in delay-1">See Who Shapes<br />Your World.</h1>
+          <div className="hero__badge animate-in">🔗 الأولى عالمياً — منصة ذكاء العلاقات</div>
+          <h1 className="hero__title animate-in delay-1">اكتشف من يشكل<br />عالمك الخاص.</h1>
           <p className="hero__subtitle animate-in delay-2">
-            Map your relationships. Detect hidden patterns. Understand who drains you,
-            who lifts you, and who you&apos;ve been ignoring — all in one visual graph.
+            ارسم خريطة علاقاتك. اكتشف الأنماط المخفية. افهم من يستنزفك،
+            ومن يدعمك، ومن تتجاهله — كل ذلك في رسم بياني تفاعلي واحد.
           </p>
           <div className="hero__actions animate-in delay-3">
-            <a href="#playground" className="btn btn--primary">Try It Live ↓</a>
-            <a href="#quickstart" className="btn btn--ghost">Quick Start</a>
+            <a href="#playground" className="btn btn--primary">جربها الآن ↓</a>
+            <a href="#quickstart" className="btn btn--ghost">البداية السريعة</a>
           </div>
           <div className="hero__code animate-in delay-4">
             <code>npm install @alrehla/dawayir</code>
@@ -124,19 +183,19 @@ export default function HomePage() {
       {/* Live Graph Playground */}
       <section id="playground" className="section">
         <div className="container">
-          <h2 className="section__title">Live Playground</h2>
+          <h2 className="section__title">ساحة التجربة المباشرة</h2>
           <p className="section__desc">
-            Add people. Assign them a ring. Watch the AI detect hidden patterns in your relationships.
+            أضف أشخاصاً. حدد دائرتهم. وشاهد كيف يكتشف الذكاء الاصطناعي الأنماط المخفية في علاقاتك.
           </p>
 
-          {/* Add Person Form */}
+          {/* Playground Intro */}
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginBottom: 32, flexWrap: 'wrap' }}>
             <input
               type="text"
               value={newName}
               onChange={e => setNewName(e.target.value)}
               onKeyDown={e => e.key === "Enter" && addPerson()}
-              placeholder="Enter a name..."
+              placeholder="أدخل اسماً..."
               style={{
                 padding: '12px 20px', borderRadius: 'var(--dw-radius)',
                 background: 'var(--dw-bg-glass)', border: '1px solid var(--dw-border)',
@@ -155,11 +214,11 @@ export default function HomePage() {
                   cursor: 'pointer', transition: 'all 0.2s',
                 }}
               >
-                {r === "green" ? "🟢 Safe" : r === "yellow" ? "🟡 Uncertain" : "🔴 Draining"}
+                {r === "green" ? "🟢 آمنة" : r === "yellow" ? "🟡 غير مستقرة" : "🔴 مستنزفة"}
               </button>
             ))}
             <button className="btn btn--primary" onClick={addPerson} style={{ padding: '10px 24px' }}>
-              + Add
+              + إضافة
             </button>
           </div>
 
@@ -168,9 +227,9 @@ export default function HomePage() {
             <svg width={canvasSize} height={canvasSize} viewBox={`0 0 ${canvasSize} ${canvasSize}`} style={{ maxWidth: '100%' }}>
               {/* Concentric rings */}
               {[
-                { r: 0.42, color: "hsla(150,70%,50%,0.12)", label: "Safe" },
-                { r: 0.28, color: "hsla(45,90%,55%,0.12)", label: "Uncertain" },
-                { r: 0.14, color: "hsla(0,75%,55%,0.12)", label: "Draining" },
+                { r: 0.14, color: "hsla(150,70%,50%,0.12)", label: "آمنة" },
+                { r: 0.28, color: "hsla(45,90%,55%,0.12)", label: "غير مستقرة" },
+                { r: 0.42, color: "hsla(0,75%,55%,0.12)", label: "مستنزفة" },
               ].map((ring, i) => (
                 <circle
                   key={i}
@@ -265,7 +324,7 @@ export default function HomePage() {
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 4 }}>{node.label}</div>
                   <div style={{ fontSize: 12, color: 'var(--dw-text-secondary)' }}>
-                    Ring: <span style={{ color: ringColors[node.ring] }}>{node.ring}</span> · Score: {node.score}
+                    الدائرة: <span style={{ color: ringColors[node.ring] }}>{node.ring === "green" ? "آمنة" : node.ring === "yellow" ? "غير مستقرة" : "مستنزفة"}</span> · النتيجة: {node.score}
                   </div>
                 </div>
                 <button
@@ -276,96 +335,62 @@ export default function HomePage() {
                     border: '1px solid hsla(0,75%,55%,0.2)', cursor: 'pointer',
                   }}
                 >
-                  Remove
+                  حذف
                 </button>
               </div>
             );
           })()}
 
-          {/* Stats + Insights */}
-          <div className="insights">
-            <div className="insight-card">
-              <div className="insight-card__value" style={{ color: 'var(--dw-green)' }}>{stats.green}</div>
-              <div className="insight-card__label">Safe Circle</div>
-            </div>
-            <div className="insight-card">
-              <div className="insight-card__value" style={{ color: 'var(--dw-yellow)' }}>{stats.yellow}</div>
-              <div className="insight-card__label">Uncertain</div>
-            </div>
-            <div className="insight-card">
-              <div className="insight-card__value" style={{ color: 'var(--dw-red)' }}>{stats.red}</div>
-              <div className="insight-card__label">Draining</div>
-            </div>
-            <div className="insight-card">
-              <div className="insight-card__value">{insights.overallHealth}%</div>
-              <div className="insight-card__label">Health Score</div>
-            </div>
+          {/* Command Center CTA */}
+          <div style={{ marginTop: 40, borderTop: '1px solid var(--dw-border)', paddingTop: 40, textAlign: 'center' }}>
+            <h3 style={{ fontSize: 24, fontWeight: 800, marginBottom: 16 }}>اكتشف الصورة الكاملة</h3>
+            <p style={{ color: "var(--dw-text-secondary)", marginBottom: 24, maxWidth: 600, margin: "0 auto 24px" }}>
+              للوصول إلى تحليل السيادة العميق (Sovereign Engine)، ومعرفة مؤشرات الاستنزاف على المدار الزمني لك، قم بتسجيل الدخول إلى غرفة العمليات.
+            </p>
+            <button onClick={handleCommandCenterClick} className="btn btn--primary" style={{ padding: "12px 32px", fontSize: 16 }}>
+              {user ? "الدخول لمركز القيادة السيادية" : "إنشاء هويتك السيادية للوصول للتحليل"}
+            </button>
           </div>
-
-          {/* Hidden Patterns */}
-          {insights.hiddenPatterns.length > 0 && (
-            <div style={{ marginTop: 32, maxWidth: 700, margin: '32px auto 0' }}>
-              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, textAlign: 'center' }}>🔍 Hidden Patterns Detected</h3>
-              {insights.hiddenPatterns.map((p, i) => (
-                <div key={i} style={{
-                  padding: 16, marginBottom: 8, borderRadius: 12,
-                  background: 'var(--dw-bg-card)', border: '1px solid var(--dw-border)',
-                  fontSize: 13, color: 'var(--dw-text-secondary)',
-                }}>
-                  <span style={{
-                    display: 'inline-block', padding: '2px 8px', borderRadius: 6,
-                    fontSize: 10, fontWeight: 700, marginRight: 8, textTransform: 'uppercase',
-                    background: p.severity === 'high' ? 'hsla(0,75%,55%,0.15)' : 'hsla(45,90%,55%,0.1)',
-                    color: p.severity === 'high' ? 'var(--dw-red)' : 'var(--dw-yellow)',
-                  }}>
-                    {p.kind.replace(/_/g, ' ')}
-                  </span>
-                  {p.description}
-                </div>
-              ))}
-              <p style={{ textAlign: 'center', marginTop: 16, fontSize: 14, fontStyle: 'italic', color: 'var(--dw-text-muted)' }}>
-                &quot;{insights.recommendation}&quot;
-              </p>
-            </div>
-          )}
         </div>
       </section>
+
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
 
       {/* Features */}
       <section id="features" className="section">
         <div className="container">
-          <h2 className="section__title">Why Dawayir?</h2>
-          <p className="section__desc">LinkedIn maps your career. Dawayir maps your life.</p>
+          <h2 className="section__title">لماذا دواير؟</h2>
+          <p className="section__desc">لينكد إن يرسم مسارك المهني. دواير ترسم مسار حياتك.</p>
           <div className="features">
             <div className="feature-card">
               <div className="feature-card__icon">🔗</div>
-              <h3 className="feature-card__title">3-Ring System</h3>
-              <p className="feature-card__desc">Red (draining), Yellow (uncertain), Green (safe). See your entire social world at a glance.</p>
+              <h3 className="feature-card__title">نظام الدوائر الثلاث</h3>
+              <p className="feature-card__desc">مستنزف (أحمر)، غير مستقر (أصفر)، آمن (أخضر). شاهد عالمك الاجتماعي بالكامل في لمح البصر.</p>
             </div>
             <div className="feature-card">
               <div className="feature-card__icon">🧠</div>
-              <h3 className="feature-card__title">AI Pattern Detection</h3>
-              <p className="feature-card__desc">Over-dependency, emotional drain, ghost connections — the engine sees what you can&apos;t.</p>
+              <h3 className="feature-card__title">اكتشاف الأنماط بالذكاء الاصطناعي</h3>
+              <p className="feature-card__desc">الاعتماد المفرط، الاستنزاف العاطفي، العلاقات الشبحية — المحرك يرى ما لا تراه أنت.</p>
             </div>
             <div className="feature-card">
               <div className="feature-card__icon">📊</div>
-              <h3 className="feature-card__title">Health Scoring</h3>
-              <p className="feature-card__desc">Every relationship gets a score. Every circle gets a health check. Data-driven emotional intelligence.</p>
+              <h3 className="feature-card__title">تقييم الصحة العلائقية</h3>
+              <p className="feature-card__desc">كل علاقة لها نتيجة. كل دائرة لها تقييم صحي. ذكاء عاطفي مبني على البيانات.</p>
             </div>
             <div className="feature-card">
               <div className="feature-card__icon">📡</div>
-              <h3 className="feature-card__title">REST API</h3>
-              <p className="feature-card__desc">Plug Dawayir into your coaching platform, therapy app, or HR tool. Full API access.</p>
+              <h3 className="feature-card__title">واجهة برمجة التطبيقات (API)</h3>
+              <p className="feature-card__desc">اربط "دواير" بمنصتك التدريبية، تطبيق العلاج النفسي، أو أدوات الموارد البشرية.</p>
             </div>
             <div className="feature-card">
               <div className="feature-card__icon">🔒</div>
-              <h3 className="feature-card__title">Privacy-First</h3>
-              <p className="feature-card__desc">Your relationships are yours. No social network mining. No data selling. Ever.</p>
+              <h3 className="feature-card__title">الخصوصية أولاً</h3>
+              <p className="feature-card__desc">علاقاتك ملك لك وحدك. لا نقوم بسحب بيانات الشبكات الاجتماعية أو بيع بياناتك أبداً.</p>
             </div>
             <div className="feature-card">
               <div className="feature-card__icon">🌍</div>
-              <h3 className="feature-card__title">Arabic + English</h3>
-              <p className="feature-card__desc">Built for the Arab world first. Full RTL support. Bilingual interface.</p>
+              <h3 className="feature-card__title">عربي + إنجليزي</h3>
+              <p className="feature-card__desc">مصمم للعالم العربي أولاً. دعم كامل لـ RTL وواجهة ثنائية اللغة.</p>
             </div>
           </div>
         </div>
@@ -374,20 +399,20 @@ export default function HomePage() {
       {/* Quick Start */}
       <section id="quickstart" className="section">
         <div className="container">
-          <h2 className="section__title">Quick Start</h2>
-          <p className="section__desc">Build a relationship graph in 5 lines of code.</p>
+          <h2 className="section__title">البداية السريعة</h2>
+          <p className="section__desc">أنشئ خريطة علاقات في 5 أسطر برمجية فقط.</p>
           <div className="code-block" style={{ maxWidth: 700, margin: '0 auto' }}>
             <pre><code>
-              <span className="cmt">{"// 1. Install"}</span>{"\n"}
+              <span className="cmt">{"// 1. التثبيت"}</span>{"\n"}
               <span className="fn">npm install</span> <span className="str">@alrehla/dawayir</span>{"\n\n"}
-              <span className="cmt">{"// 2. Build a graph"}</span>{"\n"}
+              <span className="cmt">{"// 2. بناء الرسم البياني"}</span>{"\n"}
               <span className="kw">import</span> {"{ "}<span className="fn">createNode, createGraph, analyzeGraph</span>{" }"} <span className="kw">from</span> <span className="str">&apos;@alrehla/dawayir&apos;</span>;{"\n\n"}
               <span className="kw">const</span> graph = <span className="fn">createGraph</span>([{"\n"}
-              {"  "}<span className="fn">createNode</span>(<span className="str">&apos;Mom&apos;</span>, <span className="str">&apos;green&apos;</span>, <span className="num">92</span>),{"\n"}
-              {"  "}<span className="fn">createNode</span>(<span className="str">&apos;Ahmed&apos;</span>, <span className="str">&apos;yellow&apos;</span>, <span className="num">55</span>),{"\n"}
-              {"  "}<span className="fn">createNode</span>(<span className="str">&apos;Layla&apos;</span>, <span className="str">&apos;red&apos;</span>, <span className="num">22</span>),{"\n"}
+              {"  "}<span className="fn">createNode</span>(<span className="str">&apos;أمي&apos;</span>, <span className="str">&apos;green&apos;</span>, <span className="num">92</span>),{"\n"}
+              {"  "}<span className="fn">createNode</span>(<span className="str">&apos;أحمد&apos;</span>, <span className="str">&apos;yellow&apos;</span>, <span className="num">55</span>),{"\n"}
+              {"  "}<span className="fn">createNode</span>(<span className="str">&apos;ليلى&apos;</span>, <span className="str">&apos;red&apos;</span>, <span className="num">22</span>),{"\n"}
               ]);{"\n\n"}
-              <span className="cmt">{"// 3. Get insights"}</span>{"\n"}
+              <span className="cmt">{"// 3. الحصول على التحليلات"}</span>{"\n"}
               <span className="kw">const</span> insights = <span className="fn">analyzeGraph</span>(graph);{"\n"}
               console.log(insights.hiddenPatterns);{"\n"}
               <span className="cmt">{"// → [{ kind: 'safe_harbor', severity: 'high', ... }]"}</span>
@@ -399,16 +424,16 @@ export default function HomePage() {
       {/* CTA */}
       <section className="cta">
         <div className="container">
-          <h2 className="cta__title">Map Your World.</h2>
-          <p className="cta__desc">Join the waitlist for the full Dawayir app and API access.</p>
-          <a href="mailto:dawayir@alrehla.app" className="btn btn--primary">Request Early Access →</a>
+          <h2 className="cta__title">ارسم عالمك.</h2>
+          <p className="cta__desc">انضم لقائمة الانتظار للحصول على تطبيق "دواير" الكامل والوصول للـ API.</p>
+          <a href="mailto:dawayir@alrehla.app" className="btn btn--primary">اطلب دخولاً مبكراً ←</a>
         </div>
       </section>
 
       {/* Footer */}
       <footer className="footer">
         <div className="container">
-          <p>Dawayir — A product by <a href="https://alrehla.app">الرحلة (Alrehla)</a> · © {new Date().getFullYear()}</p>
+          <p>دواير — منتج من <a href="https://alrehla.app">الرحلة (Alrehla)</a> · © {new Date().getFullYear()}</p>
         </div>
       </footer>
     </>

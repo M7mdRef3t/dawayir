@@ -102,7 +102,7 @@ function detectPatterns(nodes: DawayirNode[], edges: DawayirEdge[]): HiddenPatte
       if (node) {
         patterns.push({
           kind: "over_dependency",
-          description: `Your world revolves heavily around ${node.label}. This creates fragility.`,
+          description: `عالمك يتمحور بشكل مفرط حول ${node.label}. هذا الاعتماد يضعك في وضع هش.`,
           affectedNodes: [nodeId],
           severity: "high",
         });
@@ -115,7 +115,7 @@ function detectPatterns(nodes: DawayirNode[], edges: DawayirEdge[]): HiddenPatte
   if (edges.length > 2 && drainingEdges.length / edges.length > 0.5) {
     patterns.push({
       kind: "emotional_drain",
-      description: "More than half of your connections are draining. Your emotional reserves are at risk.",
+      description: "أكثر من نصف علاقاتك مستنزفة لطاقتك. مخزونك العاطفي في خطر.",
       affectedNodes: [...new Set(drainingEdges.flatMap(e => [e.source, e.target]))],
       severity: "high",
     });
@@ -127,7 +127,7 @@ function detectPatterns(nodes: DawayirNode[], edges: DawayirEdge[]): HiddenPatte
   if (ghosts.length > 0) {
     patterns.push({
       kind: "ghost_connection",
-      description: `${ghosts.length} people exist in your map but have no active connections. Are they still relevant?`,
+      description: `هناك ${ghosts.length} أشخاص في خريطتك بدون أي روابط فعالة. هل ما زال لوجودهم معنى؟`,
       affectedNodes: ghosts.map(n => n.id),
       severity: "low",
     });
@@ -138,7 +138,7 @@ function detectPatterns(nodes: DawayirNode[], edges: DawayirEdge[]): HiddenPatte
   if (active.length > 3 && greenNodes.length === 0) {
     patterns.push({
       kind: "safe_harbor",
-      description: "You have no 'safe' relationships. Everyone is either draining or uncertain.",
+      description: "تفتقر لخريطة علاقاتك إلى 'مرفأ آمن'. الجميع إما مستنزف أو غير مستقر.",
       affectedNodes: [],
       severity: "high",
     });
@@ -173,11 +173,11 @@ export function analyzeGraph(graph: DawayirGraph): GraphInsights {
   const hiddenPatterns = detectPatterns(active, edges);
 
   const recommendation =
-    isolationRisk ? "Your circle is very small. Consider reconnecting with past relationships." :
-    drainingRatio > 0.5 ? "Most of your connections are draining. Consider setting boundaries." :
-    overallHealth < 40 ? "Your relationship health is low. Focus on nurturing your green-ring connections." :
-    overallHealth > 70 ? "Your relationships are strong! Keep investing in your inner circle." :
-    "Your circle is balanced. Watch for patterns forming in the yellow zone.";
+    isolationRisk ? "دائرتك ضيقة جداً. فكر في إعادة التواصل مع علاقاتك القديمة." :
+    drainingRatio > 0.5 ? "معظم علاقاتك مستنزفة. من الضروري وضع حدود حازمة." :
+    overallHealth < 40 ? "صحة علاقاتك منخفضة. ركز على تقوية دائرتك الآمنة (الخضراء)." :
+    overallHealth > 70 ? "علاقاتك قوية! استمر في الاستثمار في دائرتك القريبة." :
+    "دائرتك متوازنة. راقب التطورات في المنطقة الصفراء (غير المستقرة).";
 
   return {
     overallHealth,
